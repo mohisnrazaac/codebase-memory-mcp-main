@@ -8489,6 +8489,43 @@ TEST(tool_search_code_no_project) {
     PASS();
 }
 
+TEST(tool_search_code_rejects_command_injection_file_pattern) {
+    char tmp[512];
+    cbm_mcp_server_t *srv = setup_snippet_server(tmp, sizeof(tmp));
+    ASSERT_NOT_NULL(srv);
+
+    /* file_pattern with & must be rejected */
+    char *resp1 = cbm_mcp_handle_tool(
+        srv, "search_code",
+        "{\"pattern\":\"HandleRequest\",\"project\":\"test-project\",\"file_pattern\":\"*.js & calc.exe\"}");
+    ASSERT_NOT_NULL(resp1);
+    ASSERT_NOT_NULL(strstr(resp1, "\"isError\":true"));
+    ASSERT_NOT_NULL(strstr(resp1, "invalid characters"));
+    free(resp1);
+
+    /* legitimate file_pattern must be accepted without invalid characters error */
+    char *resp2 = cbm_mcp_handle_tool(
+        srv, "search_code",
+        "{\"pattern\":\"HandleRequest\",\"project\":\"test-project\",\"file_pattern\":\"*.go\"}");
+    ASSERT_NOT_NULL(resp2);
+    ASSERT_NULL(strstr(resp2, "invalid characters"));
+    free(resp2);
+
+#ifdef _WIN32
+    /* file_pattern with % must be rejected on Windows */
+    char *resp3 = cbm_mcp_handle_tool(
+        srv, "search_code",
+        "{\"pattern\":\"HandleRequest\",\"project\":\"test-project\",\"file_pattern\":\"%COMSPEC%\"}");
+    ASSERT_NOT_NULL(resp3);
+    ASSERT_NOT_NULL(strstr(resp3, "\"isError\":true"));
+    ASSERT_NOT_NULL(strstr(resp3, "invalid characters"));
+    free(resp3);
+#endif
+
+    cbm_mcp_server_free(srv);
+    PASS();
+}
+
 TEST(search_code_multi_word) {
     char tmp[512];
     cbm_mcp_server_t *srv = setup_snippet_server(tmp, sizeof(tmp));
@@ -20323,6 +20360,7 @@ SUITE(mcp) {
     RUN_TEST(tool_search_code_limit_declares_a_minimum_issue1511);
     RUN_TEST(tool_search_code_declares_independent_result_and_raw_content_paging);
     RUN_TEST(tool_search_code_no_project);
+    RUN_TEST(tool_search_code_rejects_command_injection_file_pattern);
     RUN_TEST(search_code_multi_word);
     RUN_TEST(search_code_full_preserves_utf8_source);
     RUN_TEST(search_code_raw_match_preserves_utf8_content);

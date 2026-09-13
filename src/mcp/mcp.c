@@ -14068,6 +14068,7 @@ static bool validate_search_path_arg(const char *s) {
         case '"':
         case ';':
         case '|':
+        case '&':
         case '$':
         case '`':
         case '<':
@@ -14099,10 +14100,12 @@ static bool validate_windows_cmd_interpolation_arg(const char *s) {
 }
 
 static bool validate_search_args(const char *root_path, const char *file_pattern) {
-    if (!validate_search_path_arg(root_path)) {
+    if (!validate_search_path_arg(root_path) ||
+        !validate_windows_cmd_interpolation_arg(root_path)) {
         return false;
     }
-    if (file_pattern && !validate_search_path_arg(file_pattern)) {
+    if (file_pattern && (!validate_search_path_arg(file_pattern) ||
+                         !validate_windows_cmd_interpolation_arg(file_pattern))) {
         return false;
     }
     return true;
